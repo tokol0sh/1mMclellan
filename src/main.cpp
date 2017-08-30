@@ -39,9 +39,9 @@ int main()
 
 
 	/* Site longitude, latitude (radians) and height above the geoid (m). */
-	iauAf2a('-', 0,0, 0, &longitude);
-	iauAf2a('-', 0, 0, 0, &latitude);
-	height = 625.0;
+	iauAf2a('-', 43,33, 11.5, &latitude);
+	iauAf2a('+', 172, 32, 41.575, &longitude );
+	height = 25.0;
 
 	/* Ambient pressure (HPa), temperature (C) and rel. humidity (frac). */
 	barometric_pressure = 952.0;
@@ -69,8 +69,8 @@ int main()
 
 
 	/* Star ICRS RA,Dec (radians). */
-	iauTf2a(' ', 22, 8, 13.98473, &rc);
-	iauAf2a('-', 46, 57, 39.5078, &dc);
+	iauTf2a(' ', 22, 8, 14.27, &rc);
+	iauAf2a('-', 46, 57,41.7, &dc);
 	reprd("ICRS, epoch J2000.0:", rc, dc);
 
 	/* Proper motion: RA/Dec derivatives, epoch J2000.0. */
@@ -131,7 +131,7 @@ int main()
 		if (iauAtco13(rc, dc, pr, pd, px, rv, utc1, utc2, dut1,
 			longitude, latitude, height, xp, yp, barometric_pressure, temperature, relative_humidity, wavelength,
 			&aob, &zob, &hob, &dob, &rob, &eo)) return -1;
-		reprd("ICRS -> observed:", rob, dob);
+		reprd("ICRS -> observed:", hob+rob, dob);
 
 	}
 	
@@ -140,11 +140,11 @@ int main()
 
 void reprd(char* s, double ra, double dc)
 {
-	char pm;
+	char pm = '-';
 	int i[4];
 	printf("%25s", s);
 	iauA2tf(7, ra, &pm, i);
 	printf(" %2.2d %2.2d %2.2d.%7.7d", i[0], i[1], i[2], i[3]);
-	iauA2af(6, dc, &pm, i);
-	printf(" %c%2.2d %2.2d %2.2d.%6.6d\n", pm, i[0], i[1], i[2], i[3]);
+	iauA2af(7, dc, &pm, i);
+	printf(" %2.2d %2.2d %2.2d.%7.7d\n", i[0], i[1], i[2], i[3]);
 }
