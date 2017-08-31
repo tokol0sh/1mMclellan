@@ -5,8 +5,9 @@
 #include <sofa.h>
 #include <chrono>
 #include <iostream>
+#include <thread>
 
-void reprd(char*, double, double);
+void reprd(char* s, double ra, double dc, double hr = 0, double dr = 0);
 
 
 
@@ -17,6 +18,7 @@ int main()
 
 	typedef duration<int, ratio_multiply<hours::period, ratio<24> >::type> days;
 
+	system_clock::time_point previous_time_point;
 	system_clock::time_point current_time_point;
 	system_clock::time_point current_time_ms;
 	tm utc_tm;
@@ -30,12 +32,17 @@ int main()
 		aob, zob, hob, dob, rob,
 		pvh[2][3], pvb[2][3], r[3][3], x, y, s;
 
+	double previous_RA, previous_DEC, previous_HA;
+	double delta_RA, delta_DEC, delta_HA;
+	double rate_RA, rate_DEC, rate_HA;
+
 
 	current_time_point = system_clock::now();
 	current_time_t = system_clock::to_time_t(current_time_point);
 	utc_tm = *gmtime(&current_time_t);
 	current_time_ms = system_clock::from_time_t(current_time_t);
 	milliseconds msec = duration_cast<milliseconds>(current_time_point - current_time_ms);
+	milliseconds delta_t;
 
 
 	/* Site longitude, latitude (radians) and height above the geoid (m). */
@@ -69,8 +76,8 @@ int main()
 
 
 	/* Star ICRS RA,Dec (radians). */
-	iauTf2a(' ', 22, 8, 14.27, &rc);
-	iauAf2a('-', 46, 57,41.7, &dc);
+	iauTf2a(' ', 14, 26, 14.15, &rc);
+	iauAf2a('-', 43, 24,28.5, &dc);
 	reprd("ICRS, epoch J2000.0:", rc, dc);
 
 	/* Proper motion: RA/Dec derivatives, epoch J2000.0. */
@@ -115,7 +122,11 @@ int main()
 
 	/* UTC date. */
 	while (1) {
+		previous_time_point = current_time_point;
 		current_time_point = system_clock::now();
+
+		delta_t = duration_cast<milliseconds>(current_time_point - previous_time_point);
+
 		current_time_t = system_clock::to_time_t(current_time_point);
 		utc_tm = *gmtime(&current_time_t);
 		current_time_ms = system_clock::from_time_t(current_time_t);
@@ -127,18 +138,30 @@ int main()
 		/* TT date. */
 		if (iauUtctai(utc1, utc2, &tai1, &tai2)) return -1;
 		if (iauTaitt(tai1, tai2, &tt1, &tt2)) return -1;
-
+		previous_RA = rob;
+		previous_HA = hob;
+		previous_DEC = dob;
 		if (iauAtco13(rc, dc, pr, pd, px, rv, utc1, utc2, dut1,
 			longitude, latitude, height, xp, yp, barometric_pressure, temperature, relative_humidity, wavelength,
 			&aob, &zob, &hob, &dob, &rob, &eo)) return -1;
-		reprd("ICRS -> observed:", hob+rob, dob);
+		delta_RA = rob - previous_RA;
+		delta_DEC = dob - previous_DEC;
+		delta_HA = hob - previous_HA;
+
+		rate_RA = ((delta_RA * 1e9) / delta_t.count()) / 1e6;
+		rate_DEC = ((delta_DEC * 1e9) / delta_t.count()) / 1e6;
+		rate_HA = ((delta_HA * 1e9) / delta_t.count() ) / 1e6;
+
+		reprd("ICRS -> observed:", hob, dob, rate_HA, rate_DEC);
+		std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
 	}
 	
 	return 0;
 }
 
-void reprd(char* s, double ra, double dc)
+
+void reprd(char* s, double ra, double dc, double hr , double dr )
 {
 	char pm = '-';
 	int i[4];
@@ -146,5 +169,11 @@ void reprd(char* s, double ra, double dc)
 	iauA2tf(7, ra, &pm, i);
 	printf(" %2.2d %2.2d %2.2d.%7.7d", i[0], i[1], i[2], i[3]);
 	iauA2af(7, dc, &pm, i);
+	printf(" %2.2d %2.2d %2.2d.%7.7d", i[0], i[1], i[2], i[3]);
+	iauA2af(7, hr, &pm, i);
+	printf(" %2.2d %2.2d %2.2d.%7.7d", i[0], i[1], i[2], i[3]);
+	iauA2af(7, dr, &pm, i);
 	printf(" %2.2d %2.2d %2.2d.%7.7d\n", i[0], i[1], i[2], i[3]);
 }
+
+
