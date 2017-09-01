@@ -6,11 +6,57 @@
 #include <chrono>
 #include <iostream>
 #include <thread>
+#include <math.h>
 
 
 void reprd(char* s, double ra, double dc, double hr = 0, double dr = 0, double LST = 0);
 
+void domeCalc() {
+	double phi = 0;  // elevation of the north end of the polar axis
+	double r_D = 3200; // radius of dome (mm)
+	double p = 0; // separation of polar axis and declination axis
+	double q = 0; // separation between telescope and declination axis
+	double r = 0.0; // separation between telescope and declination axis
+	double HA, DEC = 0.0; // Coordinates of telescope (mount coordinates)
 
+	double x, y, z;
+	double x_mount, y_mount, z_mount;
+	double x_mount_offset, y_mount_offset, z_mount_offset;
+	double x_dome, y_dome, z_dome;
+	double x_s, y_s, z_s;
+	double s_dt, t2_m, w, f;
+	double azimuth_dome, elevation_dome;
+
+	y = p + r * sin(DEC);
+	x_mount = q * cos(HA) + y * sin(HA);
+	y_mount = -q * sin(HA) + y * sin(HA);
+	z_mount = r * cos (DEC);
+
+	x_dome = x_mount_offset + x_mount;
+	y_dome = y_mount_offset + y_mount * sin(phi) + z_mount_offset * cos(phi);
+	z_dome = z_mount_offset - y_mount * cos(phi) + z_mount_offset * sin(phi);
+
+	x = -sin(HA) * cos(DEC);
+	y = -cos(HA) * cos(DEC);
+	z = sin(DEC);
+	x_s = x;
+	y_s = y * sin(phi) + z * cos(phi);
+	z_s = -y * cos(phi) + z * sin(phi);
+
+	s_dt = (x_s * x_dome) + (y_s - y_dome) + (z_s * z_dome);
+	t2_m = (x_dome * x_dome) + (y_dome * y_dome) + (z_dome * z_dome);
+	w = (s_dt * s_dt) - t2_m + (r_D*r_D);
+	f = -s_dt + sqrt(w);
+
+
+	x = x_dome + f * x_s;
+	y = y_dome + f * y_s;
+	z = z_dome + f * z_s;
+
+	azimuth_dome = atan2(x, y);
+	elevation_dome = atan2(z, sqrt(x*x + y*y));
+	
+}
 
 int main()
 {
@@ -87,8 +133,8 @@ int main()
 
 
 	/* Star ICRS RA,Dec (radians). */
-	iauTf2a(' ', 17, 37, 19.15, &rc);
-	iauAf2a('-', 42, 59,52.2, &dc);
+	iauTf2a(' ', 4, 17, 53.72, &rc);
+	iauAf2a('-', 33, 47,53.9, &dc);
 	reprd("ICRS, epoch J2000.0:", rc, dc);
 
 
@@ -116,8 +162,7 @@ int main()
 	reprd("Classical Apparent place:", ra, da);
 
 	/* CIRS to topocentric. */
-	if (iauAtio13(ri, di, utc1, utc2, dut1, longitude, latitude, height, xp, yp,
-		0.0, 0.0, 0.0, 0.0,
+	if (iauAtio13(ri, di, utc1, utc2, dut1, longitude, latitude, height, xp, yp, 0.0, 0.0, 0.0, 0.0,
 		&aot, &zot, &hot, &dot, &rot)) return -1;
 	reprd("CIRS -> topocentric:", astrom.eral - rot, dot);
 
@@ -127,46 +172,6 @@ int main()
 
 
 
-
-/*  
-// Proper motion: RA/Dec derivatives, epoch J2000.0. 
-	pr = atan2(-0 * DAS2R, cos(dc));
-	pd = 0 * DAS2R;
-
-	///* Parallax (arcsec) and recession speed (km/s). 
-	px = 0.0;
-	rv = 0.0;
-
-	// ICRS to CIRS (geocentric observer). 
-	iauAtci13(rc, dc, pr, pd, px, rv, tt1, tt2, &ri, &di, &eo);
-	reprd("catalog -> CIRS:", ri, di);
-
-	//CIRS to ICRS (astrometric). 
-	iauAtic13(ri, di, tt1, tt2, &rca, &dca, &eo);
-	reprd("CIRS -> astrometric:", rca, dca);
-
-	//ICRS (astrometric) to CIRS (geocentric observer). 
-	iauAtci13(rca, dca, 0.0, 0.0, 0.0, 0.0, tt1, tt2, &ri, &di, &eo);
-	reprd("astrometric -> CIRS:", ri, di);
-
-	///Apparent place. 
-	ra = iauAnp(ri - eo);
-	da = di;
-	reprd("geocentric apparent:", ra, da);
-
-	// CIRS to topocentric. 
-	if (iauAtio13(ri, di, utc1, utc2, dut1, longitude, latitude, height, xp, yp,
-		0.0, 0.0, 0.0, 0.0,
-		&aot, &zot, &hot, &dot, &rot)) return -1;
-	reprd("CIRS -> topocentric:", rot, dot);
-
-	// CIRS to observed. 
-	if (iauAtio13(ri, di, utc1, utc2, dut1, longitude, latitude, height, xp, yp,
-		barometric_pressure, temperature, relative_humidity, wavelength,
-		&aob, &zob, &hob, &dob, &rob)) return -1;
-	reprd("CIRS -> observed:", rob, dob);
-
-	*/
 
 	///UTC date. 
 	while (1) {
@@ -206,7 +211,7 @@ int main()
 
 
 		reprd("ICRS -> observed:", rob, dob, rate_RA, rate_HA, LST);
-		//std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
 	}
 	
