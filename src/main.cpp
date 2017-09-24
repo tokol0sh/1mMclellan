@@ -6,38 +6,22 @@
 #include <chrono>
 #include <iostream>
 #include <thread>
+
+#define _USE_MATH_DEFINES
 #include <math.h>
+
 #include <Eigen\Dense>
+
+#include "site.h"
+#include "pointing.h"
+
+
 
 using namespace std;
 using namespace Eigen;
 using namespace std::chrono;
 
 void reprd(char* s, double ra, double dc, double hr = 0, double dr = 0, double LST = 0);
-struct pointingTerms_t {
-	double IA = 0.0;
-	double IB = 0.0;
-	double VD = 0.0;
-	double CA = 0.0;
-	double NP = 0.0;
-	double AW = 0.0;
-	double AN = 0.0;
-}pointingTerms;
-
-struct siteParamaters_t {
-	double longitude = 0.0;
-	double latitude = 0.0;
-	double height = 0.0;
-}siteParamaters;
-
-Vector3d CalculateTelescopeVector(const Vector2d &AzEl, pointingTerms_t Pointing_terms, const  Matrix3d &M);
-Vector3d CalculateBoresight(const Vector3d &telescope_vector, const Vector2d &standard_coordinates);
-Vector4d CalculateAxisPosition(const Vector3d &aimVector, const Vector3d &boresightVector, double NP);
-Matrix3d R1(double x);
-Matrix3d R2(double y);
-Matrix3d R3(double z);
-
-
 
 void domeCalc() {
 	double phi = 0;  // elevation of the north end of the polar axis
@@ -88,12 +72,10 @@ void domeCalc() {
 
 
 
-
-
 int main()
 {
-
-
+	pointingTerms_t pointingTerms;
+	siteParamaters_t siteParamaters;
 	typedef duration<int, ratio_multiply<hours::period, ratio<24> >::type> days;
 
 	std::chrono::time_point<std::chrono::high_resolution_clock> previous_time_point_high_res;
@@ -161,14 +143,10 @@ int main()
 	iauUtcut1(utc1, utc2, dut1, &ut11, &ut12);
 
 
-
-
 	/* Star ICRS RA,Dec (radians). */
 	iauTf2a(' ', 4, 17, 53.72, &rc);
 	iauAf2a('-', 33, 47,53.9, &dc);
 	reprd("ICRS, epoch J2000.0:", rc, dc);
-
-
 
 
 	/* Proper motion: RA/Dec derivatives, epoch J2000.0. */
@@ -200,9 +178,6 @@ int main()
 	// CIRS to Observed
 	iauAtioq(ri, di, &astrom, &aob, &zob, &hob, &dob, &rob);
 	reprd("CIRS -> observed:", astrom.eral - rob, dob);
-
-
-
 
 	///UTC date. 
 	while (1) {
@@ -244,121 +219,51 @@ int main()
 		//reprd("ICRS -> observed:", rob, dob, rate_RA, rate_HA, LST);
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
-		Matrix3d M_0 = R1(siteParamaters.latitude - 90.0) * R2(0.0) * R3(0.0);
-		Matrix3d M = R1(pointingTerms.AW) * R2(-pointingTerms.AN) * M_0;
-		Vector2d AzEl(3.14159, 3.14159);
-		Vector3d result;
-		result = CalculateTelescopeVector(AzEl, pointingTerms, M);
-		cout << result << endl;
+		Matrix3d M;
+		char pm = '-';
+		int i[4];
+
+		M = CalculateMountAttitude(&siteParamaters, &pointingTerms);
+
+		Vector2d AzEl(hob, dob);
+		cout <<"AZEL:"<<endl<<AzEl(0)* (180 / M_PI) <<endl<<AzEl(1)* (180 / M_PI) <<endl;
+
+
+		
+		Vector3d telescope_vector;
+		telescope_vector = CalculateTelescopeVector(AzEl, &pointingTerms, M);
+
+
+		Vector2d standard_coordinates(0, 0);
+		Vector3d aim = CalculateAim(AzEl, M);
+
+		Vector3d boresight =  CalculateBoresight(telescope_vector, standard_coordinates);
+
+
+		Vector4d result;
+		result = CalculateAxisPosition(aim, boresight, 0.0);
+		Vector2d test;
+		test(0) = result(0)* (180 / M_PI);
+		test(1) = result(1)* (180 / M_PI);
+
+		cout <<"result1"<<endl<<test(0)<<endl<<test(1)<<endl;
+
+
+		test(0) = result(2) * (180/M_PI);
+		test(1) = result(3)* (180 / M_PI);
+		cout << "result2" << endl << test(0) << endl << test(1) << endl;
+
+		cout << endl << endl;
 	}
 
 
 	return 0;
 }
+ 
 
 
 
-Vector3d CalculateTelescopeVector(const Vector2d &AzEl, pointingTerms_t Pointing_terms, const Matrix3d &M) {
-	Vector2d Vertical_displacement(0.0, Pointing_terms.VD);
-	Vector2d AzEl_0 = AzEl + Vertical_displacement;
-	Vector2d pointing_origin(0,0);
 
-	Vector3d V(cos(AzEl(0)) * cos(AzEl(1)), sin(AzEl(0)) * cos(AzEl(1)), sin(AzEl(1)));
-	Vector3d V_0(cos(AzEl_0(0)) * cos(AzEl_0(1)), sin(AzEl_0(0)) * cos(AzEl_0(1)), sin(AzEl_0(1)));
-
-	Vector3d A = M * V;
-	Vector3d A_0 = M * V_0;
-
-	Vector3d telescope_0(cos(Pointing_terms.CA), sin(Pointing_terms.CA), 0);
-
-	Vector3d undeflected_boresight = CalculateBoresight(telescope_0, pointing_origin);
-
-	Vector4d Undeflected_telescope = CalculateAxisPosition(A_0, undeflected_boresight, Pointing_terms.NP);
-	Vector4d deflected_telescope = CalculateAxisPosition(A, undeflected_boresight, Pointing_terms.NP);
-
-	return Vector3d(Undeflected_telescope(0), Undeflected_telescope(1), 0);
-}
-
-
-Vector3d CalculateBoresight(const Vector3d &telescope_vector, const Vector2d &standard_coordinates) {
-	Vector3d boresight;
-	double radius = sqrt(telescope_vector(0) * telescope_vector(0) + telescope_vector(1) * telescope_vector(1));
-
-	boresight(0) = telescope_vector(0) - (standard_coordinates(0) * telescope_vector(1) + standard_coordinates(1) * telescope_vector(2) * telescope_vector(0)) / radius;
-	boresight(1) = telescope_vector(1) - (standard_coordinates(0) * telescope_vector(0) + standard_coordinates(1) * telescope_vector(2) * telescope_vector(1)) / radius;
-	boresight(2) = telescope_vector(2) + standard_coordinates(1) * radius;
-
-	boresight /= sqrt(1 + standard_coordinates(0) * standard_coordinates(0) + standard_coordinates(1) * standard_coordinates(1));
-
-	return boresight;
-}
-
-Vector4d CalculateAxisPosition(const Vector3d &aimVector, const Vector3d &boresightVector, double NP) {
-	double pitch1 = atan2( (aimVector(2) + sin(NP) * boresightVector(1)), + sqrt(aimVector(0) * aimVector(0) + aimVector(1) * aimVector(1) - boresightVector(1)*(2 * aimVector(2) * sin(NP) + boresightVector(1)) - sin(NP) * sin(NP))) - atan2(boresightVector(2), boresightVector(0));
-	double pitch2 = atan2( (aimVector(2) + sin(NP) * boresightVector(1)), - sqrt(aimVector(0) * aimVector(0) + aimVector(1) * aimVector(1) - boresightVector(1)*(2 * aimVector(2) * sin(NP) + boresightVector(1)) - sin(NP) * sin(NP))) - atan2(boresightVector(2), boresightVector(0));
-	
-	Vector3d NProtation1 = R1(NP) * R2(pitch1) * boresightVector;
-	Vector3d NProtation2 = R1(NP) * R2(pitch2) * boresightVector;
-
-	double roll1 = atan2((aimVector(1) * NProtation1(0) - aimVector(0) * NProtation1(1)), (aimVector(0) * NProtation1(0) + aimVector(1) * NProtation1(1)));
-	double roll2 = atan2((aimVector(1) * NProtation2(0) - aimVector(0) * NProtation2(1)), (aimVector(0) * NProtation2(0) + aimVector(1) * NProtation2(1)));
-
-	Vector4d results(pitch1, roll1, pitch2, roll2);
-	return results;
-}
-
-
-
-Matrix3d R1(double x) {
-	Matrix3d m;
-	m(0, 0) = 1.0;
-	m(0, 1) = 0.0;
-	m(0, 2) = 0.0;
-
-	m(1, 0) = 0.0;
-	m(1, 1) = cos(x);
-	m(1, 2) = -sin(x);
-
-	m(2, 0) = 0.0;
-	m(2, 1) = sin(x);
-	m(2, 2) = cos(x);
-
-	return (m);
-}
-
-Matrix3d R2(double y) {
-	Matrix3d m;
-	m(0, 0) = cos(y);
-	m(0, 1) = 0.0;
-	m(0, 2) = sin(y);
-
-	m(1, 0) = 0.0;
-	m(1, 1) = 1.0;
-	m(1, 2) = 0.0;
-
-	m(2, 0) = -sin(y);
-	m(2, 1) = 0.0;
-	m(2, 2) = cos(y);
-
-	return (m);
-}
-
-Matrix3d R3(double z) {
-	Matrix3d m;
-	m(0, 0) = cos(z);
-	m(0, 1) = -sin(z);
-	m(0, 2) = 0.0;
-
-	m(1, 0) = sin(z);
-	m(1, 1) = cos(z);
-	m(1, 2) = 0.0;
-
-	m(2, 0) = 0.0;
-	m(2, 1) = 0.0;
-	m(2, 2) = 1.0;
-
-	return (m);
-}
 
 
 void reprd(char* s, double ra, double dc, double hr , double dr , double LST)
