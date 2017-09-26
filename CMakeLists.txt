@@ -10,8 +10,8 @@ include_directories(SFML-2.4.1/include)
 add_subdirectory(Serial)
 include_directories(Serial/include)
 
-find_package(Eigen3 REQUIRED)
-include_directories(${EIGEN3_INCLUDE_DIR})
+add_subdirectory(Eigen)
+include_directories(eigen)
 
 add_subdirectory(sofa)
 include_directories(sofa/20170420/c/src)

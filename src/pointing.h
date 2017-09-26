@@ -12,8 +12,8 @@ struct pointingTerms_t {
 	double VD = 0.0;
 	double CA = 0.0;
 	double NP = 0.0;
-	double AW = 0.02;
-	double AN = 0.02;
+	double AW = 0.0;
+	double AN = 0.0;
 };
 
 

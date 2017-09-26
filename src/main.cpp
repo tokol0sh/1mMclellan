@@ -226,7 +226,7 @@ int main()
 		M = CalculateMountAttitude(&siteParamaters, &pointingTerms);
 
 		Vector2d AzEl(hob, dob);
-		cout <<"AZEL:"<<endl<<AzEl(0)* (180 / M_PI) <<endl<<AzEl(1)* (180 / M_PI) <<endl;
+		//cout <<"AZEL:"<<endl<<AzEl(0)* (180 / M_PI) <<endl<<AzEl(1)* (180 / M_PI) <<endl;
 
 
 		
@@ -242,18 +242,20 @@ int main()
 
 		Vector4d result;
 		result = CalculateAxisPosition(aim, boresight, 0.0);
-		Vector2d test;
+		Vector4d test;
 		test(0) = result(0)* (180 / M_PI);
 		test(1) = result(1)* (180 / M_PI);
+		test(2) = result(2) * (180 / M_PI);
+		test(3) = result(3)* (180 / M_PI);
 
-		cout <<"result1"<<endl<<test(0)<<endl<<test(1)<<endl;
+		cout << AzEl(0)* (180 / M_PI) << " " << AzEl(1)* (180 / M_PI) <<" result1 "<<test(0)<<" "<<test(1)<< " result2" << " " << test(2) << " "<< test(3) << endl;
 
 
 		test(0) = result(2) * (180/M_PI);
 		test(1) = result(3)* (180 / M_PI);
-		cout << "result2" << endl << test(0) << endl << test(1) << endl;
+		//cout << "result2" << endl << test(0) << endl << test(1) << endl;
 
-		cout << endl << endl;
+		//cout << endl << endl;
 	}
 
 
