@@ -62,7 +62,7 @@ Vector3d CalculateBoresight(const Vector3d &telescope_vector, const Vector2d &st
 
 Matrix3d CalculateMountAttitude(siteParamaters_t *site_parameters, pointingTerms_t *pointing_terms) {
 	Matrix3d M_0 = R1(0.0) * R2((-90 - 90)*(M_PI / 180)) * R3(0.0);
-	Matrix3d M = R1(pointing_terms->AW) * R2(-pointing_terms->AN);//* M_0;
+	Matrix3d M = R1(pointing_terms->AW) * R2(-pointing_terms->AN);//* M_0; // M_0 appears to be a rotation for AZ/EL mounts?
 	return M;
 }
 
@@ -93,6 +93,22 @@ Vector4d CalculateAxisPosition(const Vector3d &aimVector, const Vector3d &boresi
 	return results;
 }
 
+
+Vector4d CalculateAxisPositionFromObservedPos(Vector2d AzEl, pointingTerms_t pointingTerms, Matrix3d M) {
+	Vector3d telescope_vector;
+	telescope_vector = CalculateTelescopeVector(AzEl, &pointingTerms, M);
+
+
+	Vector2d standard_coordinates(0, 0);
+	Vector3d aim = CalculateAim(AzEl, M);
+
+	Vector3d boresight = CalculateBoresight(telescope_vector, standard_coordinates);
+
+
+	Vector4d result;
+	result = CalculateAxisPosition(aim, boresight, 0.0);
+	return result;
+}
 
 
 Matrix3d R1(double x) {

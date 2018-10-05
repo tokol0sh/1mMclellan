@@ -7,13 +7,13 @@
 using namespace Eigen;
 
 struct pointingTerms_t {
-	double IA = 0.0;
-	double IB = 0.0;
-	double VD = 0.0;
+	double IA = 10.0;
+	double IB = 10.0;
+	double VD = 0.0000;
 	double CA = 0.0;
-	double NP = 0.0;
-	double AW = 0.0;
-	double AN = 0.0;
+	double NP = 0.0000;
+	double AW = 0.001;
+	double AN = 0.0005;
 };
 
 
@@ -22,6 +22,7 @@ Vector3d CalculateBoresight(const Vector3d &telescope_vector, const Vector2d &st
 Matrix3d CalculateMountAttitude(siteParamaters_t *site_parameters, pointingTerms_t *pointing_terms);
 Vector3d CalculateAim(const Vector2d &AzEl, const Matrix3d &mount_attitude);
 Vector4d CalculateAxisPosition(const Vector3d &aimVector, const Vector3d &boresightVector, double NP);
+Vector4d CalculateAxisPositionFromObservedPos(Vector2d AzEl, pointingTerms_t pointingTerms, Matrix3d M);
 Matrix3d R1(double x);
 Matrix3d R2(double y);
 Matrix3d R3(double z);

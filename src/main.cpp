@@ -89,7 +89,7 @@ int main()
 
 	double previous_RA, previous_DEC, previous_HA, LST;
 	double delta_RA, delta_DEC, delta_HA;
-	double rate_RA, rate_DEC, rate_HA;
+	double rate_RA, rate_DEC, rate_HA, rate_DEC1, rate_HA1;
 
 	iauASTROM astrom;
 	double latitude, longitude, height, barometric_pressure, temperature, relative_humidity, wavelength, utc1, utc2, tai1, tai2,
@@ -137,15 +137,15 @@ int main()
 
 
 	/* Time  */
-	iauDtf2d("UTC", (2017), utc_tm.tm_mon + 1, utc_tm.tm_mday, utc_tm.tm_hour, utc_tm.tm_min, (utc_tm.tm_sec + msec.count()/1000.0), &utc1, &utc2);
+	iauDtf2d("UTC", (2018), utc_tm.tm_mon + 1, utc_tm.tm_mday, utc_tm.tm_hour, utc_tm.tm_min, (utc_tm.tm_sec + msec.count()/1000.0), &utc1, &utc2);
 	iauUtctai(utc1, utc2, &tai1, &tai2);
 	iauTaitt(tai1, tai2, &tt1, &tt2);
 	iauUtcut1(utc1, utc2, dut1, &ut11, &ut12);
 
 
 	/* Star ICRS RA,Dec (radians). */
-	iauTf2a(' ', 4, 17, 53.72, &rc);
-	iauAf2a('-', 33, 47,53.9, &dc);
+	iauTf2a(' ', 21,  8, 47.83, &rc);
+	iauAf2a('-', 88, 57, 23.00, &dc);
 	reprd("ICRS, epoch J2000.0:", rc, dc);
 
 
@@ -190,7 +190,7 @@ int main()
 		current_time_ms = system_clock::from_time_t(current_time_t);
 		milliseconds msec = duration_cast<milliseconds>(current_time_point - current_time_ms);
 
-
+		// CIRS to observed at current time
 		iauDtf2d("UTC", 1900 + utc_tm.tm_year, utc_tm.tm_mon + 1, utc_tm.tm_mday, utc_tm.tm_hour, utc_tm.tm_min, (utc_tm.tm_sec + msec.count() / 1000.0), &utc1, &utc2);
 		iauUtctai(utc1, utc2, &tai1, &tai2);
 		iauTaitt(tai1, tai2, &tt1, &tt2);
@@ -202,6 +202,8 @@ int main()
 
 		LST = eo - astrom.eral;
 
+
+		// CIRS to observed at current time + delta_t
 		iauDtf2d("UTC", 1900 + utc_tm.tm_year, utc_tm.tm_mon + 1, utc_tm.tm_mday, utc_tm.tm_hour, utc_tm.tm_min, (delta_t + utc_tm.tm_sec + msec.count() / 1000.0), &utc1, &utc2);
 		iauUtctai(utc1, utc2, &tai1, &tai2);
 		iauTaitt(tai1, tai2, &tt1, &tt2);
@@ -216,7 +218,7 @@ int main()
 		rate_HA = (hob_next - hob) / delta_t;
 
 
-		//reprd("ICRS -> observed:", rob, dob, rate_RA, rate_HA, LST);
+		//reprd("ICRS -> observed:", hob, dob, rate_RA, rate_HA, LST);
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 
 		Matrix3d M;
@@ -224,36 +226,25 @@ int main()
 		int i[4];
 
 		M = CalculateMountAttitude(&siteParamaters, &pointingTerms);
-
-		Vector2d AzEl(hob, dob);
+		Vector4d result_current;
+		Vector4d result_next;
+		Vector2d AzEl_current(hob, dob);
+		Vector2d AzEl_next(hob_next, dob_next);
 		//cout <<"AZEL:"<<endl<<AzEl(0)* (180 / M_PI) <<endl<<AzEl(1)* (180 / M_PI) <<endl;
 
 
-		
-		Vector3d telescope_vector;
-		telescope_vector = CalculateTelescopeVector(AzEl, &pointingTerms, M);
+		result_current = CalculateAxisPositionFromObservedPos(AzEl_current, pointingTerms, M);
+		result_next = CalculateAxisPositionFromObservedPos(AzEl_next, pointingTerms, M);
+
+		rate_HA1 = (result_next(0) - result_current(0)) / delta_t;
+		rate_DEC1 = (result_next(1) - result_current(1)) / delta_t;
 
 
-		Vector2d standard_coordinates(0, 0);
-		Vector3d aim = CalculateAim(AzEl, M);
 
-		Vector3d boresight =  CalculateBoresight(telescope_vector, standard_coordinates);
+		reprd("observed -> telescope:", rate_HA, rate_HA1, rate_DEC, rate_DEC1, LST);
+		//reprd("observed -> telescope:", result_current(0), result_current(1), rate_HA, rate_HA1, LST);
+		//cout << AzEl(0)* (180 / M_PI) << " " << AzEl(1)* (180 / M_PI) <<" result1 "<<test(0)<<" "<<test(1)<< " result2" << " " << test(2) << " "<< test(3) << endl;
 
-
-		Vector4d result;
-		result = CalculateAxisPosition(aim, boresight, 0.0);
-		Vector4d test;
-		test(0) = result(0)* (180 / M_PI);
-		test(1) = result(1)* (180 / M_PI);
-		test(2) = result(2) * (180 / M_PI);
-		test(3) = result(3)* (180 / M_PI);
-
-		cout << AzEl(0)* (180 / M_PI) << " " << AzEl(1)* (180 / M_PI) <<" result1 "<<test(0)<<" "<<test(1)<< " result2" << " " << test(2) << " "<< test(3) << endl;
-
-
-		test(0) = result(2) * (180/M_PI);
-		test(1) = result(3)* (180 / M_PI);
-		//cout << "result2" << endl << test(0) << endl << test(1) << endl;
 
 		//cout << endl << endl;
 	}
@@ -273,14 +264,14 @@ void reprd(char* s, double ra, double dc, double hr , double dr , double LST)
 	char pm = '-';
 	int i[4];
 	printf("%25s", s);
-	iauA2tf(7, ra, &pm, i);
-	printf(" %2.2d %2.2d %2.2d.%7.7d", i[0], i[1], i[2], i[3]);
+	iauA2af(7, ra, &pm, i);
+	printf(" %2.2d %2.2d %2.2d.%7.7d |", i[0], i[1], i[2], i[3]);
 	iauA2af(7, dc, &pm, i);
-	printf(" %2.2d %2.2d %2.2d.%7.7d", i[0], i[1], i[2], i[3]);
+	printf(" %2.2d %2.2d %2.2d.%7.7d |", i[0], i[1], i[2], i[3]);
 	iauA2af(7, hr, &pm, i);
-	printf(" %2.2d %2.2d %2.2d.%7.7d", i[0], i[1], i[2], i[3]);
+	printf(" %2.2d %2.2d %2.2d.%7.7d |", i[0], i[1], i[2], i[3]);
 	iauA2af(7, dr, &pm, i);
-	printf(" %2.2d %2.2d %2.2d.%7.7d", i[0], i[1], i[2], i[3]);
+	printf(" %2.2d %2.2d %2.2d.%7.7d |", i[0], i[1], i[2], i[3]);
 	iauA2tf(7, LST, &pm, i);
 	printf(" %2.2d %2.2d %2.2d.%7.7d\n", i[0], i[1], i[2], i[3]);
 }

@@ -10,7 +10,7 @@ include_directories(SFML-2.4.1/include)
 add_subdirectory(Serial)
 include_directories(Serial/include)
 
-add_subdirectory(Eigen)
+
 include_directories(eigen)
 
 add_subdirectory(sofa)
@@ -18,4 +18,4 @@ include_directories(sofa/20170420/c/src)
 
 add_executable(1m_TCS src/main.cpp src/pointing.cpp src/pointing.h src/site.h )
 
-target_link_libraries(1m_TCS sfml-system sfml-window sfml-graphics serial sofa Eigen3::Eigen)
+target_link_libraries(1m_TCS sfml-system sfml-window sfml-graphics serial sofa)
